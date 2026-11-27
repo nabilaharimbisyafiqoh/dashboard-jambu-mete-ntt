@@ -149,7 +149,7 @@ SQL = """
 def baca_neon():
     import psycopg2
 
-   koneksi = psycopg2.connect(st.secrets["database"]["url"])
+    koneksi = psycopg2.connect(st.secrets["database"]["url"])
     try:
         with koneksi.cursor() as cur:
             cur.execute(SQL)
@@ -157,6 +157,7 @@ def baca_neon():
             kolom = [k[0] for k in cur.description]
     finally:
         koneksi.close()
+
     return pd.DataFrame(baris, columns=kolom)
 
 
@@ -165,7 +166,7 @@ def rapikan(df):
     df["kode_wilayah"] = df["kode_wilayah"].astype(str)
     df["tahun"] = df["tahun"].astype(int)
     for k in KOLOM_ANGKA:
-        df[k] = pd.to_numeric(df[k].astype(float), errors="coerce")
+        df[k] = pd.to_numeric(df[k], errors="coerce")
     df["status_data"] = df["status_data"].fillna("BELUM ADA")
     df["updated_at"] = pd.to_datetime(df["updated_at"], errors="coerce", utc=True)
     areal = df[["luas_tm_ha", "luas_tbm_ha", "luas_tt_tr_ha"]].sum(axis=1)
@@ -182,14 +183,12 @@ def rapikan(df):
 
 @st.cache_data(ttl=600, show_spinner="Mengambil data dari Neon...")
 def muat_data():
-    try:
-        df, sumber, catatan = baca_neon(), "Neon PostgreSQL", ""
-    except Exception as galat:
-        csv = Path(__file__).parent / "data" / "jambu_mete_pusat.csv"
-        df = pd.read_csv(csv, dtype={"kode_wilayah": str})
-        sumber = "Berkas CSV"
-        catatan = f"Koneksi Neon tidak dipakai ({type(galat).__name__})."
-    return rapikan(df), sumber, catatan
+    df = baca_neon()
+    if df.empty:
+        st.error("Data dari Neon kosong. Periksa tabel jambu_mete_pusat.")
+        st.stop()
+
+    return rapikan(df), "Neon PostgreSQL", ""
 
 
 df_all, sumber_data, catatan_data = muat_data()
@@ -443,9 +442,8 @@ with tab_ringkas:
             labels={"produktivitas_kg_ha": "kg/ha"},
         )
         fig.update_traces(
-            texttemplate="%{label}<br>%{value:,.0f} ton",
-            marker=dict(cornerradius=6),
-        )
+    texttemplate="%{label}<br>%{value:,.0f} ton"
+)
         fig.update_coloraxes(colorbar=dict(title="kg/ha", thickness=10, len=0.7))
         tampil(tema(fig, 430, "Peta pohon produksi (warna = produktivitas)"))
 
