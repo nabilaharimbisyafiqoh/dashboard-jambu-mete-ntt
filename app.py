@@ -149,7 +149,7 @@ SQL = """
 def baca_neon():
     import psycopg2
 
-    koneksi = psycopg2.connect(st.secrets["neon"]["url"])
+   koneksi = psycopg2.connect(st.secrets["database"]["url"])
     try:
         with koneksi.cursor() as cur:
             cur.execute(SQL)
